@@ -1,0 +1,138 @@
+#!/usr/bin/python3
+
+import sys, math, statistics
+
+def compare_boll_list(diff_boll_high, diff_boll_low):
+    boll_list = []
+    for i in range(len(diff_boll_high)):
+        if diff_boll_high[i] <= diff_boll_low[i]:
+            boll_list.append(diff_boll_high[i])
+        else:
+            boll_list.append(diff_boll_low[i])
+    return boll_list
+
+def calc_diff_bollinger_high(temp, boll_high, period):
+    diff_boll_high = []
+    for i in range(len(boll_high)):
+        diff_boll_high.append(boll_high[i] - temp[i])
+    return diff_boll_high
+
+def calc_diff_bollinger_low(temp, boll_low, period):
+    diff_boll_low = []
+    for i in range(len(boll_low)):
+        diff_boll_low.append(temp[i] - boll_low[i])
+    return diff_boll_low
+
+def calc_bollinger_high(mov_avg, std_dev):
+    boll_high = []
+    for i in range(len(mov_avg)):
+        boll_high.append(mov_avg[i] + std_dev[i] * 2)
+    return boll_high
+
+def calc_bollinger_low(mov_avg, std_dev):
+    boll_low = []
+    for i in range(len(mov_avg)):
+        boll_low.append(mov_avg[i] - std_dev[i] * 2)
+    return boll_low
+
+def calc_std_dev_list(input_list, n):
+    std_dev = []
+    for i in range(n - 1, len(input_list) + 1):
+        if i >= n:
+            std_dev.append(statistics.pstdev(input_list[i - n:i]))
+    return std_dev
+
+def calc_mov_avg(input_list, n):
+    moving_average_n = []
+    for i in range(n - 1, len(input_list) + 1):
+        if i >= n:
+            moving_average_n.append(statistics.mean(input_list[i - n:i]))
+    return moving_average_n
+
+def calc_std_dev(input_list, n):
+    return statistics.pstdev(input_list[-n:])
+
+def calc_temp_evol(input_list, n):
+    return ((input_list[-1] - input_list[-(n + 1)]) / input_list[-(n + 1)]) * 100
+
+def calc_inc_avg(input_list, n):
+    g = 0.00
+    for i in range(len(input_list) - n, len(input_list)):
+        delta = float(input_list[i] - input_list[i - 1])
+        g += delta if delta > 0 else 0
+    g /= n
+    return g
+
+def test_switch(r, last_r):
+    if (last_r >= 0 and r < 0) or (last_r < 0 and r >= 0):
+        print("\t\ta switch occurs")
+        return 1
+    else:
+        print()
+        return 0
+
+def print_res(i, period, temp, last_r, nb_switch):
+    if period > i:
+        print("g=nan\t\tr=nan%\t\ts=nan")
+    elif period == i:
+        s = float(calc_std_dev(temp, period))
+        print("g=nan\t\tr=nan\t\ts=%.2f" % s)
+    else:
+        g = calc_inc_avg(temp, period)
+        r = round(calc_temp_evol(temp, period))
+        s = float(calc_std_dev(temp, period))
+        print("g=%.2f\t\tr=%d%%\t\ts=%.2f" % (g, r, s), end='')
+        nb_switch += test_switch(r, last_r)
+    return r, nb_switch
+
+if len(sys.argv) != 2:
+    exit(84)
+try:
+    period = int(sys.argv[1])
+    if period <= 0:
+        exit(84)
+except:
+    exit(84)
+temp = []
+i = 0
+last_r = 0
+nb_switch = 0
+while True:
+    try:
+        last_temp = input()
+    except:
+        break
+    if last_temp == "STOP":
+        break
+    try:
+        i += 1
+        last_temp = float(last_temp)
+        temp.append(last_temp)
+        last_r, nb_switch = print_res(i, period, temp, last_r, nb_switch)
+    except:
+        pass
+print("Global tendency switched %d times" % nb_switch)
+print("5 weirdest values are [", end='')
+
+ls_stdev = calc_std_dev_list(temp, period)
+ls_mov_avg = calc_mov_avg(temp, period)
+boll_high = calc_bollinger_high(ls_mov_avg, ls_stdev)
+boll_low = calc_bollinger_low(ls_mov_avg, ls_stdev)
+del temp[:period - 1]
+diff_boll_high = calc_diff_bollinger_high(temp, boll_high, period)
+diff_boll_low = calc_diff_bollinger_low(temp, boll_low, period)
+
+diff_boll = compare_boll_list(diff_boll_high, diff_boll_low)
+zipped = zip(diff_boll, temp)
+zipped = list(zipped)
+res = sorted(zipped, key = lambda x: x[0])
+
+for i in range(4):
+    try:
+        print(res[i][1], end=", ")
+    except:
+        break
+try:
+    print(res[4][1], end="]\n")
+except:
+    exit(0)
